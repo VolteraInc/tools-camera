@@ -28,6 +28,9 @@ with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
     x = map(float, ins.readline().split(' '))
     y = map(float, ins.readline().split(' '))
 
+print("Resetting Kx, Ky, Theta...")
+com.sendCommandOK(ser, "M506 X1 Y1 A0");
+
 for a in range(0, 4):
     com.sendCommandOK(ser, "G01 X2 Y2 Z22 F15000")
     com.sendCommandOK(ser, "G28") #need to go back to home each time to reduce the amount of backlash from the printer

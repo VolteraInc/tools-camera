@@ -4,7 +4,7 @@ from shapely.geometry import Polygon
 
 
 # Global parameters
-Cx = 80.0;
+Cx = 100.0;
 Cy = 100.0;
 
 	# p2     d2_2     p3
