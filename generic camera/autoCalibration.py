@@ -20,14 +20,29 @@ with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
     x = map(float, ins.readline().split(' '))
     y = map(float, ins.readline().split(' '))
 
+# Confirm the right camera is plugged in. 
+capture = cv2.VideoCapture(0) # 1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
+ret, testImage = capture.read()
+try:
+     cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
+except:
+    capture = cv2.VideoCapture(1)
+    ret, testImage = capture.read()
+    try:
+        cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
+    except:
+        print ("ERROR: there are no cameras plugged in")
+        sys.exit()
 
-capture = cv2.VideoCapture(1) # 1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
+
 ret, imgOriginal = 0, 0
 referenceImg = cv2.imread("images/SingleFiducial.png")
 
 print("Resetting Kx, Ky, Theta...")
 device.sendCommandOK("M506 X1 Y1 A0")
 device.sendCommandOK("G28") # Home the system.
+
+
 
 for i in range(4):
     device.sendCommandOK("G01 X{:f} Y{:f} Z10 F15000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
@@ -39,14 +54,6 @@ for i in range(4):
     while True:
         #for visual display
         ret, imgOriginal = capture.read()
-        try:
-            imgGrayscale = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
-
-        # If USB Camera not plugged in - exit.
-        except:
-            print ("ERROR: there are no cameras plugged in")
-            sys.exit()
-
         feedback_x, feedback_y, template = camera.isFiducialAligned(imgOriginal, referenceImg)
         cv2.imshow("camera", template)
 
