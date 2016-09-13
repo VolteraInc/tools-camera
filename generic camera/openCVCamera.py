@@ -4,6 +4,7 @@ import numpy as np
 def isFiducialAligned(imgOriginal, pattern):
     x, y = 0, 0
 
+
     # Convert to Greyscale, Blur and get Canny
     imgGrayscale = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
     # cv2.imshow('GrayScale', imgGrayscale)
@@ -22,11 +23,12 @@ def isFiducialAligned(imgOriginal, pattern):
     # cv2.imshow('Contours', drawing)
 
     # Create a copy of our contours drawing, we will add features to the drawing
+    # template = imgGrayscale.copy()
     template = drawing.copy()
     h, w, channels = pattern.shape
 
     # Apply template Matching
-    res = cv2.matchTemplate(pattern, template,cv2.TM_CCOEFF)
+    res = cv2.matchTemplate(pattern, template, cv2.TM_CCOEFF)
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
     top_left = max_loc
     bottom_right = (top_left[0] + w, top_left[1] + h)
@@ -58,7 +60,6 @@ def isFiducialAligned(imgOriginal, pattern):
         elif (offset_y < 0):
             y = min(-1, offset_y/2)
 
-    print("returning", x, offset_x)
     return x, y, template
 
 def isZSwitchAligned(imgOriginal, pattern):

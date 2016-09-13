@@ -23,16 +23,16 @@ with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
 
 capture = cv2.VideoCapture(1) # 1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
 ret, imgOriginal = 0, 0
-referenceImg = cv2.imread("images/SingleFiducialThin.png")
+referenceImg = cv2.imread("images/SingleFiducial.png")
 
 print("Resetting Kx, Ky, Theta...")
 device.sendCommandOK("M506 X1 Y1 A0")
 device.sendCommandOK("G28") # Home the system.
 
 for i in range(4):
-    device.sendCommandOK("G01 X{:f} Y{:f} Z5 F15000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
+    device.sendCommandOK("G01 X{:f} Y{:f} Z10 F15000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
     device.sendCommandOK("M400")
-    device.sendCommandOK("M18")
+    # device.sendCommandOK("M18")
 
     print ("Press Esc with the popup window in focus to close the window.")
     ret, imgOriginal = capture.read() # clear the stored image
@@ -55,21 +55,21 @@ for i in range(4):
             break
 
         # If we are lined up - exit.
-        # if (feedback_x == 0 and feedback_y == 0):
-        #     # Sample Response: X:5.150000 Y:56.649997 Z:0.000000 E:0.000000 Count X: 5.148098 Y:56.647773 Z:0.000000 Absolute X:512 Y:5688 B:0 H:0,0,0
-        #     resp = device.getCmdResponse("M114", "X:") #
-        #     resp = resp[resp.find("Absolute"):] # we get: Absolute X:512 Y:5688 B:0 H:0,0,0
-        #     numbers = re.findall(r'\d+', resp)
-        #     x_count[i] = int(numbers[0])
-        #     y_count[i] = int(numbers[1])
-        #     break
-        #
-        # # Feedback will be an integer value, with a minimum value of 1
-        # x[i] += 0.01 * feedback_x
-        # y[i] += 0.01 * feedback_y
-        #
-        # device.sendCommandOK("G01 X{:f} Y{:f} Z5 F100".format(x[i], y[i]))
-        # device.sendCommandOK("M400")
+        if (feedback_x == 0 and feedback_y == 0):
+            # Sample Response: X:5.150000 Y:56.649997 Z:0.000000 E:0.000000 Count X: 5.148098 Y:56.647773 Z:0.000000 Absolute X:512 Y:5688 B:0 H:0,0,0
+            resp = device.getCmdResponse("M114", "X:") #
+            resp = resp[resp.find("Absolute"):] # we get: Absolute X:512 Y:5688 B:0 H:0,0,0
+            numbers = re.findall(r'\d+', resp)
+            x_count[i] = int(numbers[0])
+            y_count[i] = int(numbers[1])
+            break
+
+        # Feedback will be an integer value, with a minimum value of 1
+        x[i] += 0.01 * feedback_x
+        y[i] += 0.01 * feedback_y
+
+        device.sendCommandOK("G01 X{:f} Y{:f} Z10 F100".format(x[i], y[i]))
+        device.sendCommandOK("M400")
 
     # Save our values but add offset so we always apprach from one side.
     with open('autoCalibrationStartingCoordinates.txt', 'w') as ins:
