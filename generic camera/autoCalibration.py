@@ -93,12 +93,14 @@ while not passed:
     # Compute our calibration values - We use the absolute number of steps because it is more accurate.
     Kx, Ky, theta, errors = KxKyTheta.calculateKxKyTheta(x_count[0], y_count[0], x_count[1], y_count[1], x_count[2], y_count[2], x_count[3], y_count[3])
 
+    # Check our errors - and see if they are too large.
     passed = True
     for error in errors:
-        if abs(error) > 0.038:
+        if abs(error) > 0.03:
             print("Failed. Error is too large: ", error)
             passed = False
 
+    # Adjust values if we failed so we always approach from the right side.
     if not passed:
         for i in range(4):
             x[i] -= 0.5
@@ -108,5 +110,5 @@ while not passed:
 capture.release()
 cv2.destroyAllWindows()
 device.sendCommandOK("M506 X{:f} Y{:f} A{:f}".format(Kx, Ky, theta)) # Save our calibration values.
-device.sendCommandOK("G01 X1 Y1 F15000") # Return to home fast
+device.sendCommandOK("G01 X1 Y1 F7000") # Return to home fast
 device.sendCommandOK("G28") # Home and exit.
