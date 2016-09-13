@@ -23,8 +23,8 @@ def isFiducialAligned(imgOriginal, pattern):
     # cv2.imshow('Contours', drawing)
 
     # Create a copy of our contours drawing, we will add features to the drawing
-    # template = imgGrayscale.copy()
-    template = drawing.copy()
+    template = imgOriginal.copy()
+    # template = drawing.copy()
     h, w, channels = pattern.shape
 
     # Apply template Matching

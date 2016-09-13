@@ -19,17 +19,31 @@ class point():
 class truePCB():
 
     def __init__(self):
-        self.x1 = (141.03)
-        self.y1 = (110.86)
 
-        self.x2 = (141.06)
-        self.y2 = (11.05)
+        # Original values for the via/fiducial. Note it is not a perfect rectangle!
+        # self.x1 = (141.03)
+        # self.y1 = (110.86)
+        #
+        # self.x2 = (141.06)
+        # self.y2 = (11.05)
+        #
+        # self.x3 = (19.52)
+        # self.y3 = (11.05)
+        #
+        # self.x4 = (19.49)
+        # self.y4 = (110.86)
 
-        self.x3 = (19.52)
-        self.y3 = (11.05)
+        self.x1 = (140.0)
+        self.y1 = (111.0)
 
-        self.x4 = (19.49)
-        self.y4 = (110.86)
+        self.x2 = (140.0)
+        self.y2 = (11.0)
+
+        self.x3 = (18.5)
+        self.y3 = (11.0)
+
+        self.x4 = (18.5)
+        self.y4 = (111.0)
 
         self.d1_1 = sqrt((self.x2 - self.x1)**2 + (self.y2 - self.y1)**2)
         self.d1_2 = sqrt((self.x4 - self.x3)**2 + (self.y4 - self.y3)**2)
@@ -141,13 +155,16 @@ def calculateKxKyTheta(x1, y1, x2, y2, x3, y3, x4, y4):
     d3_1 = sqrt((x3 -x1)**2 + (y3 - y1)**2)
     d3_2 = sqrt((x4- x2)**2 + (y4 - y2)**2)
 
+    errors = [round(d1_1 - t.d1_1,4),
+              round(d1_2 - t.d1_2,4),
+              round(d2_1 - t.d2_1,4),
+              round(d2_2 - t.d2_2,4),
+              round(d3_1 - t.d3_1,4),
+              round(d3_2 - t.d3_2,4)
+              ]
     # Print our delta's.
     print("Error in calculated and true distances:")
-    print(round(d1_1 - t.d1_1,4))
-    print(round(d1_2 - t.d1_2,4))
-    print(round(d2_1 - t.d2_1,4))
-    print(round(d2_2 - t.d2_2,4))
-    print(round(d3_1 - t.d3_1,4))
-    print(round(d3_2 - t.d3_2,4))
+    for error in errors:
+        print error
 
-    return Kx, Ky, theta_rads
+    return Kx, Ky, theta_rads, errors
