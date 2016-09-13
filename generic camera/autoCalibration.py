@@ -2,89 +2,91 @@
 #this script aligns the camera with the fiducials on the calibration board and prints the coordinates that the fiducials are at
 
 import sys
-import serial
 import com
 import openCVCamera as camera
 import KxKyTheta
-import numpy as np
 import cv2
+import re
 
-ser = serial.Serial()
-ports = com.list_serial_ports()
-if (len(ports) == 0):
-    print "No available serial port devices are detected."
-    sys.exit()
+ #Initiate our device object - handles serial communication
+device = com.Device()
+device.connect()
 
-com.openSerial(ser, ports[-1], 250000)
-capture = cv2.VideoCapture(1) #1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
-ret, imgOriginal = 0, 0
-img = cv2.imread("patch2.png")
-meth = 'cv2.TM_CCOEFF'
-method = eval(meth)
-
+# Extract our initial estimates from a file.
 x, y = [], []
-
+x_count = [0,0,0,0]
+y_count = [0,0,0,0]
 with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
     x = map(float, ins.readline().split(' '))
     y = map(float, ins.readline().split(' '))
 
-print("Resetting Kx, Ky, Theta...")
-com.sendCommandOK(ser, "M506 X1 Y1 A0");
 
-for a in range(0, 4):
-    com.sendCommandOK(ser, "G01 X2 Y2 Z22 F15000")
-    com.sendCommandOK(ser, "G28") #need to go back to home each time to reduce the amount of backlash from the printer
-    com.sendCommandOK(ser, "G01 X{:f} Y{:f} Z10 F15000".format(x[a], y[a]))
-    com.sendCommandOK(ser, "M400")
-    
-    print "Press Esc with the popup window in focus to close the window."
-    ret, imgOriginal = capture.read() #clear the stored image
+capture = cv2.VideoCapture(1) # 1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
+ret, imgOriginal = 0, 0
+referenceImg = cv2.imread("images/SingleFiducialThin.png")
+
+print("Resetting Kx, Ky, Theta...")
+device.sendCommandOK("M506 X1 Y1 A0")
+device.sendCommandOK("G28") # Home the system.
+
+for i in range(4):
+    device.sendCommandOK("G01 X{:f} Y{:f} Z5 F15000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
+    device.sendCommandOK("M400")
+    device.sendCommandOK("M18")
+
+    print ("Press Esc with the popup window in focus to close the window.")
+    ret, imgOriginal = capture.read() # clear the stored image
     while True:
         #for visual display
         ret, imgOriginal = capture.read()
         try:
             imgGrayscale = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
-        except: #if the computer does not have a second camera, then it tries to use this computer's built in webcam
-            print "Couldn't find a second camera.. Switching to the default camera."
-            capture.release()
-            capture = cv2.VideoCapture(0)
-            ret, imgOriginal = capture.read()
-            try:
-                imgGrayscale = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
-            except:
-                print "ERROR: there are no cameras plugged in"
-                sys.exit()
-        
-        feedback_x, feedback_y, template = camera.isFiducialAligned(imgOriginal, img)
+
+        # If USB Camera not plugged in - exit.
+        except:
+            print ("ERROR: there are no cameras plugged in")
+            sys.exit()
+
+        feedback_x, feedback_y, template = camera.isFiducialAligned(imgOriginal, referenceImg)
         cv2.imshow("camera", template)
-        
-        if cv2.waitKey(10) == 27: #this if statement prevents the window from displaying a grey screen
-            cv2.destroyAllWindows() 
+
+        if cv2.waitKey(10) == 27: # this if statement prevents the window from displaying a grey screen
+            cv2.destroyAllWindows()
             break
-        #end of display code
-        
-        if (feedback_x == 0 and feedback_y == 0):
-            break
-        
-        if (feedback_x > 0):
-            x[a] += 0.01
-        elif (feedback_x < 0):
-            x[a] -= 0.01
-        if (feedback_y > 0):
-            y[a] += 0.01
-        elif (feedback_y < 0):
-            y[a] -= 0.01
-            
-        com.sendCommandOK(ser, "G01 X{:f} Y{:f} Z10 F15000".format(x[a], y[a]))
-        com.sendCommandOK(ser, "M400")
-    
+
+        # If we are lined up - exit.
+        # if (feedback_x == 0 and feedback_y == 0):
+        #     # Sample Response: X:5.150000 Y:56.649997 Z:0.000000 E:0.000000 Count X: 5.148098 Y:56.647773 Z:0.000000 Absolute X:512 Y:5688 B:0 H:0,0,0
+        #     resp = device.getCmdResponse("M114", "X:") #
+        #     resp = resp[resp.find("Absolute"):] # we get: Absolute X:512 Y:5688 B:0 H:0,0,0
+        #     numbers = re.findall(r'\d+', resp)
+        #     x_count[i] = int(numbers[0])
+        #     y_count[i] = int(numbers[1])
+        #     break
+        #
+        # # Feedback will be an integer value, with a minimum value of 1
+        # x[i] += 0.01 * feedback_x
+        # y[i] += 0.01 * feedback_y
+        #
+        # device.sendCommandOK("G01 X{:f} Y{:f} Z5 F100".format(x[i], y[i]))
+        # device.sendCommandOK("M400")
+
+    # Save our values but add offset so we always apprach from one side.
     with open('autoCalibrationStartingCoordinates.txt', 'w') as ins:
-        ins.write("{:f} {:f} {:f} {:f}\n{:f} {:f} {:f} {:f}\n".format(x[0] - 0.04, x[1] - 0.04, x[2] - 0.04, x[3] - 0.04, y[0] - 0.04, y[1] - 0.04, y[2] - 0.04, y[3] - 0.04))
-	
-    print "P%d: X:%f Y:%f" % (a + 1, x[a], y[a])
+        ins.write("{:f} {:f} {:f} {:f}\n{:f} {:f} {:f} {:f}\n".format(x[0] -1 , x[1] -1 , x[2] -1, x[3] -1, y[0] -1 , y[1] -1, y[2] -1, y[3] -1))
+
+    print ("P%d: X:%f Y:%f" % (i + 1, x[i], y[i]))
     cv2.destroyAllWindows()
 
+# Release the video capture and destroy all windows.
 capture.release()
 cv2.destroyAllWindows()
-Kx, Ky, theta = KxKyTheta.calculateKxKyTheta(x[0] * KxKyTheta.Cx, y[0] * KxKyTheta.Cy, x[1] * KxKyTheta.Cx, y[1] * KxKyTheta.Cy, x[2] * KxKyTheta.Cx, y[2] * KxKyTheta.Cy, x[3] * KxKyTheta.Cx, y[3] * KxKyTheta.Cy)
-com.sendCommandOK(ser, "M506 X{:f} Y{:f} A{:f}".format(Kx, Ky, theta))
+
+for i in range(4):
+    print("Values: X{0} Y{1}".format(x_count[i], y_count[i]))
+
+# Compute our calibration values - We use the absolute number of steps because it is more accurate.
+Kx, Ky, theta = KxKyTheta.calculateKxKyTheta(x_count[0], y_count[0], x_count[1], y_count[1], x_count[2], y_count[2], x_count[3], y_count[3])
+device.sendCommandOK("M506 X{:f} Y{:f} A{:f}".format(Kx, Ky, theta)) # Save our calibration values.
+device.sendCommandOK("G01 X1 Y1 F15000") # Return to home fast
+device.sendCommandOK("G28") # Home and exit.
