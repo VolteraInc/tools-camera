@@ -36,7 +36,7 @@ except:
 
 
 ret, imgOriginal = 0, 0
-referenceImg = cv2.imread("images/rawColor.png")
+referenceImg = cv2.imread("images/0_height.png")
 
 print("Resetting Kx, Ky, Theta...")
 device.sendCommandOK("M506 X1 Y1 A0")
@@ -46,9 +46,9 @@ passed = False
 while not passed:
 
     for i in range(4):
-        device.sendCommandOK("G01 X{:f} Y{:f} Z10 F4000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
+        device.sendCommandOK("G01 X{:f} Y{:f} Z0 F4000".format(x[i], y[i])) # Travel to our estimate but approach from the origin to make up for backlash.
         device.sendCommandOK("M400")
-        # device.sendCommandOK("M18")
+        #device.sendCommandOK("M18")
 
         print ("Press Esc with the popup window in focus to close the window.")
         ret, imgOriginal = capture.read() # clear the stored image
@@ -73,15 +73,15 @@ while not passed:
                 break
 
             # Feedback will be an integer value, with a minimum value of 1
-            x[i] += 0.01 * feedback_x
-            y[i] += 0.01 * feedback_y
+            x[i] += 0.005 * feedback_x
+            y[i] += 0.005 * feedback_y
 
-            device.sendCommandOK("G01 X{:f} Y{:f} Z10 F100".format(x[i], y[i]))
+            device.sendCommandOK("G01 X{:f} Y{:f} Z0 F10".format(x[i], y[i]))
             device.sendCommandOK("M400")
 
         # Save our values but add offset so we always apprach from one side.
-        with open('autoCalibrationStartingCoordinates.txt', 'w') as ins:
-            ins.write("{:f} {:f} {:f} {:f}\n{:f} {:f} {:f} {:f}\n".format(x[0] -1 , x[1] -1 , x[2] -1, x[3] -1, y[0] -1 , y[1] -1, y[2] -1, y[3] -1))
+        #with open('autoCalibrationStartingCoordinates.txt', 'w') as ins:
+         #   ins.write("{:f} {:f} {:f} {:f}\n{:f} {:f} {:f} {:f}\n".format(x[0] -1 , x[1] -1 , x[2] -1, x[3] -1, y[0] -1 , y[1] -1, y[2] -1, y[3] -1))
 
         print ("P%d: X:%f Y:%f" % (i + 1, x[i], y[i]))
         cv2.destroyAllWindows()
