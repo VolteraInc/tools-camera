@@ -149,7 +149,7 @@ class Device(object):
         return result
 
     def _printCmd(self, cmd):
-        print cmd.strip()
+        print(cmd.strip())
 
 
 

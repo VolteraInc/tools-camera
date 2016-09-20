@@ -165,6 +165,6 @@ def calculateKxKyTheta(x1, y1, x2, y2, x3, y3, x4, y4):
     # Print our delta's.
     print("Error in calculated and true distances:")
     for error in errors:
-        print error
+        print(error)
 
     return Kx, Ky, theta_rads, errors

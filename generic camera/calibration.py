@@ -1,0 +1,171 @@
+#used for printer calibration purposes
+#this script aligns the camera with the fiducials on the calibration board and prints the coordinates that the fiducials are at
+
+import sys
+import com
+import openCVCamera as camera
+import KxKyTheta
+import cv2
+import re
+
+
+class calibration(object):
+
+    def __init__(self):
+
+        # Connect othe printer.
+        self.device = com.Device()
+        self.device.connect()
+
+        # Connect the camera.
+        self.capture = self.getCamera()
+
+        self.x, self.y = [], []
+        self.x_count = [0,0,0,0]
+        self.y_count = [0,0,0,0]
+
+        # Extract our initial estimates from a file.
+        with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
+            self.x = map(float, ins.readline().split(' '))
+            self.y = map(float, ins.readline().split(' '))
+
+        # Load our template image.
+        self.referenceImg = cv2.imread("images/0_height.png")
+
+    def getCamera(self):
+        # Confirm the right camera is plugged in.
+        capture = cv2.VideoCapture(1) # 1 uses the second camera on the computer (0 is usually a laptop's built-in webcam)
+        ret, testImage = capture.read()
+        try:
+            cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
+        except:
+            capture = cv2.VideoCapture(0)
+            ret, testImage = capture.read()
+            try:
+                cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
+            except:
+                print ("ERROR: there are no cameras plugged in")
+                sys.exit()
+
+        return capture
+
+    def x_backlash(self):
+        ''' This function records the X axis backlash '''
+
+        left_x = [0,0,0,0,0]
+        right_x = [0,0,0,0,0]
+        summation = 0
+
+        print("Finding backlash in X")
+        self.device.sendCommandOK("G28")
+        free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
+
+        for i in range(2):
+            left_x[i], y, x_count, y_count = self.homeIn(free_x - 2, free_y)
+            right_x[i], y, x_count, y_count = self.homeIn(free_x + 2, free_y)
+            summation = summation + (left_x[i] - right_x[i]) # Our backlash is measured by the difference in our measurements
+            print("Recorded backlash in X: ", left_x[i] - right_x[i])
+
+        print("Overall Backlash:", summation/2.0)
+
+    def y_backlash(self):
+
+        self.device.sendCommandOK("G28")
+
+        print("Finding backlash in Y")
+        free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
+        back_x, back_y, x_count, y_count = self.homeIn(free_x, free_y - 2)
+        forward_x, forward_y, x_count, y_count = self.homeIn(free_x, free_y + 2)
+
+        # Our backlash is measured by the difference in our measurements
+        print("Recorded backlash in Y: ", abs(forward_y - back_y))
+
+
+
+    def calibrate(self):
+
+        print("Resetting Kx, Ky, Theta...")
+        self.device.sendCommandOK("M506 X1 Y1 A0")
+        self.device.sendCommandOK("G28") # Home the system.
+
+        passed = False
+        while not passed:
+
+            for i in range(4):
+                self.x[i], self.y[i], self.x_count[i], self.y_count[i] = self.homeIn(self.x[i], self.y[i])
+
+            # After values were collected - output them.
+            for i in range(4):
+                print("Values: X{0} Y{1}".format(self.x_count[i], self.y_count[i]))
+
+            # Compute our calibration values - We use the absolute number of steps because it is more accurate.
+            Kx, Ky, theta, errors = KxKyTheta.calculateKxKyTheta(self.x_count[0], self.y_count[0], self.x_count[1], self.y_count[1], self.x_count[2], self.y_count[2], self.x_count[3], self.y_count[3])
+
+            # Check our errors - and see if they are too large.
+            passed = True
+            for error in errors:
+                if abs(error) > 0.03:
+                    print("Failed. Error is too large: ", error)
+                    passed = False
+
+            # Adjust values if we failed so we always approach from the right side.
+            if not passed:
+                for i in range(4):
+                    self.x[i] -= 0.5
+                    self.y[i] -= 0.5
+
+        # Release the video capture and destroy all windows.
+        self.capture.release()
+        cv2.destroyAllWindows()
+        self.device.sendCommandOK("M506 X{:f} Y{:f} A{:f}".format(Kx, Ky, theta)) # Save our calibration values.
+        self.device.sendCommandOK("G01 X1 Y1 F7000") # Return to home fast
+        self.device.sendCommandOK("G28") # Home and exit.
+
+
+    def homeIn(self, initial_x, initial_y):
+        ''' This function homes in on the reference Image and breaks after center has been idenfitified. '''
+        self.device.sendCommandOK("G01 X{:f} Y{:f} Z0 F4000".format(initial_x, initial_y)) # Travel to our initial estimate.
+        self.device.sendCommandOK("M400")
+
+        x_coord = initial_x
+        y_coord = initial_y
+        while True:
+
+            self.capture.read()
+            self.capture.read()
+            self.capture.read()
+            self.capture.read()
+            self.capture.read()
+            # Experimental - Do multiple reads to get the latest image?
+            ret, imgOriginal = self.capture.read()
+
+            feedback_x, feedback_y, template = camera.isFiducialAligned(imgOriginal, self.referenceImg)
+            cv2.imshow("camera", template)
+
+            if cv2.waitKey(10) == 27: # this if statement prevents the window from displaying a grey screen
+                cv2.destroyAllWindows()
+                break
+
+            # If we are lined up - exit.
+            if (feedback_x == 0 and feedback_y == 0):
+                # Sample Response: X:5.150000 Y:56.649997 Z:0.000000 E:0.000000 Count X: 5.148098 Y:56.647773 Z:0.000000 Absolute X:512 Y:5688 B:0 H:0,0,0
+                resp = self.device.getCmdResponse("M114", "X:") #
+                numbers = re.findall(r'\d+.\d+', resp)
+                x_coord = float(numbers[0])
+                y_coord = float(numbers[1])
+
+                resp = resp[resp.find("Absolute"):] # we get: Absolute X:512 Y:5688 B:0 H:0,0,0
+                numbers = re.findall(r'\d+', resp)
+                x_steps = int(numbers[0])
+                y_steps = int(numbers[1])
+                break
+
+            # Feedback will be an integer value, with a minimum value of 1
+            x_coord += 0.01 * feedback_x
+            y_coord += 0.01 * feedback_y
+
+            self.device.sendCommandOK("G01 X{:f} Y{:f} F100".format(x_coord, y_coord))
+            self.device.sendCommandOK("M400")
+
+        cv2.destroyAllWindows()
+        return x_coord, y_coord, x_steps, y_steps

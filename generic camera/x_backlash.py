@@ -1,4 +1,5 @@
 from calibration import calibration
 
 cal  = calibration()
-cal.calibrate()
+cal.x_backlash()
+raw_input("Press Enter to Quit")
