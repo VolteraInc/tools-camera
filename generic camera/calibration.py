@@ -7,22 +7,27 @@ import openCVCamera as camera
 import KxKyTheta
 import cv2
 import re
+from threading import Thread
+import time
 
 
 class calibration(object):
 
     def __init__(self):
 
-        # Connect othe printer.
+        # Connect our printer.
         self.device = com.Device()
         self.device.connect()
+        self.device.sendCommandOK("G28")
 
         # Connect the camera.
         self.capture = self.getCamera()
+        self.captureFrame = None
 
         self.x, self.y = [], []
         self.x_count = [0,0,0,0]
         self.y_count = [0,0,0,0]
+
 
         # Extract our initial estimates from a file.
         with open('autoCalibrationStartingCoordinates.txt', 'r') as ins:
@@ -31,6 +36,33 @@ class calibration(object):
 
         # Load our template image.
         self.referenceImg = cv2.imread("images/0_height.png")
+
+        # Flag used to kill thread.
+        self.exit_thread = False
+
+        # Start our worker thread that captures images.
+        self.start()
+
+  #Starts updating the images in a thread
+    def start(self):
+        self.myThread = Thread(target=self.updateFrame, args=())
+        self.myThread.daemon = True
+        self.myThread.start()
+
+   # Continually updates the frame
+    def updateFrame(self):
+        while(True):
+            ret, self.currentFrame = self.capture.read()
+            #print("Frame Captured!")
+
+            #Continually grab frames until we get a good one.
+            while (self.currentFrame is None):
+                ret, frame = self.capture.read()
+
+            # Do we have to exit now?
+            if self.exit_thread:
+                print("Exiting Thread!")
+                return
 
     def getCamera(self):
         # Confirm the right camera is plugged in.
@@ -49,15 +81,16 @@ class calibration(object):
 
         return capture
 
-    def x_backlash(self):
-        ''' This function records the X axis backlash '''
+    def x_backlash(self, skip_exit=False):
+        ''' This function measures and saves the X axis backlash '''
 
         left_x = [0,0,0,0,0]
         right_x = [0,0,0,0,0]
         summation = 0
 
-        print("Finding backlash in X")
-        self.device.sendCommandOK("G28")
+        print("Finding backlash in X Axis... Resetting saved value.")
+        self.device.sendCommandOK("M507 X0.0")
+
         free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
 
         for i in range(2):
@@ -66,27 +99,38 @@ class calibration(object):
             summation = summation + (left_x[i] - right_x[i]) # Our backlash is measured by the difference in our measurements
             print("Recorded backlash in X: ", left_x[i] - right_x[i])
 
-        print("Overall Backlash:", summation/2.0)
 
-    def y_backlash(self):
+        print("Overall Backlash X:", summation/2.0)
+        self.device.sendCommandOK("M507 X{:f}".format(-summation/2.0)) # Save our calibration values.
+        self.exit(skip_exit)
 
-        self.device.sendCommandOK("G28")
+    def y_backlash(self, skip_exit=False):
+        ''' This function measures and saves the X axis backlash '''
 
-        print("Finding backlash in Y")
+        back_y = [0,0,0,0,0]
+        forward_y = [0,0,0,0,0]
+        summation = 0
+
+        print("Finding backlash in Y Axis... Resetting saved value.")
+        self.device.sendCommandOK("M507 Y0.0")
+
         free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
-        back_x, back_y, x_count, y_count = self.homeIn(free_x, free_y - 2)
-        forward_x, forward_y, x_count, y_count = self.homeIn(free_x, free_y + 2)
 
-        # Our backlash is measured by the difference in our measurements
-        print("Recorded backlash in Y: ", abs(forward_y - back_y))
+        for i in range(2):
+            x, back_y[i], x_count, y_count = self.homeIn(free_x, free_y - 2)
+            y, forward_y[i], x_count, y_count = self.homeIn(free_x, free_y + 2)
+            summation = summation + (back_y[i] - forward_y[i]) # Our backlash is measured by the difference in our measurements
+            print("Recorded backlash in Y: ", back_y[i] - forward_y[i])
 
 
+        print("Overall Backlash Y:", summation/2.0)
+        self.device.sendCommandOK("M507 Y{:f}".format(-summation/2.0)) # Save our calibration values.
+        self.exit(skip_exit)
 
-    def calibrate(self):
+    def axis_skew(self, skip_exit=False):
 
         print("Resetting Kx, Ky, Theta...")
         self.device.sendCommandOK("M506 X1 Y1 A0")
-        self.device.sendCommandOK("G28") # Home the system.
 
         passed = False
         while not passed:
@@ -115,31 +159,22 @@ class calibration(object):
                     self.y[i] -= 0.5
 
         # Release the video capture and destroy all windows.
-        self.capture.release()
-        cv2.destroyAllWindows()
         self.device.sendCommandOK("M506 X{:f} Y{:f} A{:f}".format(Kx, Ky, theta)) # Save our calibration values.
-        self.device.sendCommandOK("G01 X1 Y1 F7000") # Return to home fast
-        self.device.sendCommandOK("G28") # Home and exit.
+        self.exit(skip_exit)
 
 
     def homeIn(self, initial_x, initial_y):
         ''' This function homes in on the reference Image and breaks after center has been idenfitified. '''
         self.device.sendCommandOK("G01 X{:f} Y{:f} Z0 F4000".format(initial_x, initial_y)) # Travel to our initial estimate.
         self.device.sendCommandOK("M400")
+        time.sleep(0.2)
 
         x_coord = initial_x
         y_coord = initial_y
         while True:
 
-            self.capture.read()
-            self.capture.read()
-            self.capture.read()
-            self.capture.read()
-            self.capture.read()
-            # Experimental - Do multiple reads to get the latest image?
-            ret, imgOriginal = self.capture.read()
-
-            feedback_x, feedback_y, template = camera.isFiducialAligned(imgOriginal, self.referenceImg)
+            # Note - Current frame in the workter thread.
+            feedback_x, feedback_y, template = camera.isFiducialAligned(self.currentFrame, self.referenceImg)
             cv2.imshow("camera", template)
 
             if cv2.waitKey(10) == 27: # this if statement prevents the window from displaying a grey screen
@@ -166,6 +201,25 @@ class calibration(object):
 
             self.device.sendCommandOK("G01 X{:f} Y{:f} F100".format(x_coord, y_coord))
             self.device.sendCommandOK("M400")
+            time.sleep(0.2)
 
         cv2.destroyAllWindows()
         return x_coord, y_coord, x_steps, y_steps
+
+    def exit(self, skip_exit):
+
+        # If we have a full calibration, we want to skip the exit for some tests
+        if skip_exit:
+            return
+
+        # Kill the thread.
+        self.exit_thread = True
+        self.myThread.join()
+
+        # Close the camera.
+        self.capture.release()
+        cv2.destroyAllWindows()
+
+        # Go to home
+        self.device.sendCommandOK("G01 X1 Y1 F7000") # Return to home fast
+        self.device.sendCommandOK("G28") # Home and exit.

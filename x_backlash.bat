@@ -1,3 +1,3 @@
 cd generic camera
-python x_backlash.py
+python autoCalibration.py x_backlash
 cd ..
