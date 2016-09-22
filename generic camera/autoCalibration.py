@@ -17,6 +17,9 @@ elif args[1] == "y_backlash":
     print("Calibrating Y Axis Backlash")
     cal.y_backlash()
 
+elif args[1] == "spread":
+    print("Finding Spread")
+    cal.spread()
 else:
     print("Calibration Axis Skew and Axis Backlash")
     cal.x_backlash(skip_exit=True)

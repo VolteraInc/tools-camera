@@ -9,6 +9,7 @@ import cv2
 import re
 from threading import Thread
 import time
+import random
 
 
 class calibration(object):
@@ -80,6 +81,25 @@ class calibration(object):
                 sys.exit()
 
         return capture
+
+
+    def spread(self):
+        ''' This function measures and saves the X axis backlash '''
+
+        with open("spread.txt", 'w') as f:
+
+            free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
+            for i in range(1000):
+
+                # Gets 2 randon numbers so we are approaching from different directions
+                adj_x = random.uniform(-1,1) * 2
+                adj_y = random.uniform(-1,1) * 2
+
+                # Home in and save the center value.
+                x, y, x_count, y_count = self.homeIn(free_x + adj_x, free_y + adj_y)
+                f.write("{:f}, {:f}, {:f}, {:f}\n".format(x, y, x_count, y_count))
+
+            self.exit(False)
 
     def x_backlash(self, skip_exit=False):
         ''' This function measures and saves the X axis backlash '''
