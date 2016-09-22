@@ -10,6 +10,7 @@ import re
 from threading import Thread
 import time
 import random
+from KxKyTheta import Cx, Cy
 
 
 class calibration(object):
@@ -114,14 +115,14 @@ class calibration(object):
         free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
 
         for i in range(2):
-            left_x[i], y, x_count, y_count = self.homeIn(free_x - 2, free_y)
-            right_x[i], y, x_count, y_count = self.homeIn(free_x + 2, free_y)
+            left_x[i], y, x_count, y_count = self.homeIn(free_x - 0.5, free_y)
+            right_x[i], y, x_count, y_count = self.homeIn(free_x + 0.5, free_y)
             summation = summation + (left_x[i] - right_x[i]) # Our backlash is measured by the difference in our measurements
             print("Recorded backlash in X: ", left_x[i] - right_x[i])
 
 
-        print("Overall Backlash X:", summation/2.0)
-        self.device.sendCommandOK("M507 X{:f}".format(-summation/2.0)) # Save our calibration values.
+        print("Saving Overall Backlash X:", summation/2.0 + 0.01)
+        self.device.sendCommandOK("M507 X{:f}".format(summation/2.0 + 0.01)) # Save our calibration values.
         self.exit(skip_exit)
 
     def y_backlash(self, skip_exit=False):
@@ -137,14 +138,14 @@ class calibration(object):
         free_x, free_y, x_count, y_count = self.homeIn(self.x[0], self.y[0])
 
         for i in range(2):
-            x, back_y[i], x_count, y_count = self.homeIn(free_x, free_y - 2)
-            y, forward_y[i], x_count, y_count = self.homeIn(free_x, free_y + 2)
+            x, back_y[i], x_count, y_count = self.homeIn(free_x, free_y - 0.5)
+            y, forward_y[i], x_count, y_count = self.homeIn(free_x, free_y + 0.5)
             summation = summation + (back_y[i] - forward_y[i]) # Our backlash is measured by the difference in our measurements
             print("Recorded backlash in Y: ", back_y[i] - forward_y[i])
 
 
-        print("Overall Backlash Y:", summation/2.0)
-        self.device.sendCommandOK("M507 Y{:f}".format(-summation/2.0)) # Save our calibration values.
+        print("Saving Overall Backlash Y:", summation/2.0 + 0.01)
+        self.device.sendCommandOK("M507 Y{:f}".format(summation/2.0 + 0.01)) # Save our calibration values.
         self.exit(skip_exit)
 
     def axis_skew(self, skip_exit=False):
@@ -160,10 +161,11 @@ class calibration(object):
 
             # After values were collected - output them.
             for i in range(4):
-                print("Values: X{0} Y{1}".format(self.x_count[i], self.y_count[i]))
+                print("Values: X{0} Y{1}".format(self.x[i], self.y[i]))
 
-            # Compute our calibration values - We use the absolute number of steps because it is more accurate.
-            Kx, Ky, theta, errors = KxKyTheta.calculateKxKyTheta(self.x_count[0], self.y_count[0], self.x_count[1], self.y_count[1], self.x_count[2], self.y_count[2], self.x_count[3], self.y_count[3])
+            # Compute our calibration values - We use the coordinates because step count includes backlash compensation.
+            # Kx, Ky, theta, errors = KxKyTheta.calculateKxKyTheta(self.x_co`unt[0], self.y_count[0], self.x_count[1], self.y_count[1], self.x_count[2], self.y_count[2], self.x_count[3], self.y_count[3])
+            Kx, Ky, theta, errors = KxKyTheta.calculateKxKyTheta(self.x[0]*Cx, self.y[0]*Cy, self.x[1]*Cx, self.y[1]*Cy, self.x[2]*Cx, self.y[2]*Cy, self.x[3]*Cx, self.y[3]*Cy)
 
             # Check our errors - and see if they are too large.
             passed = True
@@ -185,7 +187,7 @@ class calibration(object):
 
     def homeIn(self, initial_x, initial_y):
         ''' This function homes in on the reference Image and breaks after center has been idenfitified. '''
-        self.device.sendCommandOK("G01 X{:f} Y{:f} Z0 F4000".format(initial_x, initial_y)) # Travel to our initial estimate.
+        self.device.sendCommandOK("G01 X{:f} Y{:f} Z0 F6000".format(initial_x, initial_y)) # Travel to our initial estimate.
         self.device.sendCommandOK("M400")
         time.sleep(0.2)
 
