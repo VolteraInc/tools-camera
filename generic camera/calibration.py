@@ -121,8 +121,8 @@ class calibration(object):
             print("Recorded backlash in X: ", left_x[i] - right_x[i])
 
 
-        print("Saving Overall Backlash X:", summation/2.0 + 0.01)
-        self.device.sendCommandOK("M507 X{:f}".format(summation/2.0 + 0.01)) # Save our calibration values.
+        print("Saving Overall Backlash X:", summation/2.0)
+        self.device.sendCommandOK("M507 X{:f}".format(summation/2.0)) # Save our calibration values.
         self.exit(skip_exit)
 
     def y_backlash(self, skip_exit=False):
@@ -144,8 +144,8 @@ class calibration(object):
             print("Recorded backlash in Y: ", back_y[i] - forward_y[i])
 
 
-        print("Saving Overall Backlash Y:", summation/2.0 + 0.01)
-        self.device.sendCommandOK("M507 Y{:f}".format(summation/2.0 + 0.01)) # Save our calibration values.
+        print("Saving Overall Backlash Y:", summation/2.0)
+        self.device.sendCommandOK("M507 Y{:f}".format(summation/2.0)) # Save our calibration values.
         self.exit(skip_exit)
 
     def axis_skew(self, skip_exit=False):
