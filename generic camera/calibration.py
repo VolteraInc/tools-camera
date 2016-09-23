@@ -150,11 +150,11 @@ class calibration(object):
 
     def axis_skew(self, skip_exit=False):
 
-        print("Resetting Kx, Ky, Theta...")
-        self.device.sendCommandOK("M506 X1 Y1 A0")
-
         passed = False
         while not passed:
+
+            print("Resetting Kx, Ky, Theta...")
+            self.device.sendCommandOK("M506 X1 Y1 A0")
 
             for i in range(4):
                 self.x[i], self.y[i], self.x_count[i], self.y_count[i] = self.homeIn(self.x[i], self.y[i])
