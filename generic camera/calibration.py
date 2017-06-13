@@ -170,7 +170,7 @@ class calibration(object):
             # Check our errors - and see if they are too large.
             passed = True
             for error in errors:
-                if abs(error) > 0.03:
+                if abs(error) > 0.04:
                     print("Failed. Error is too large: ", error)
                     passed = False
 
