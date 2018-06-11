@@ -86,12 +86,14 @@ class Device(object):
            self._printCmd(self._serial.readline())  #Log this
         self._printCmd(cmd)
         self._serial.write("{0}\r\n".format(cmd.strip()))  # Strips just in case.
+        time.sleep(1)
 
-        for i in xrange(40):
-            response = self._serial.readline()
-            #self._printCmd(response) #Log this
-            if response.startswith("ok"):
-                return True # We need to just return here.
+
+        while self._serial.inWaiting() > 0:
+            lines = self._serial.readlines() # Built in timeout
+            for line in lines:
+                if 'ok' in line:
+                    return True #We just need to return here
 
         raise MyException("Sent Command: {0} but did not receive OK".format(cmd))
 
@@ -106,8 +108,9 @@ class Device(object):
             # Configure the port and then open it.
             self._serial.port = port
             self._serial.baudrate = 250000
-            self._serial.timeout = 0.5
+            self._serial.timeout = 0.8
             self._serial.open()
+            self._serial.sleep(2)
 
             #Loop to allow bootloader to run
             snapshot = time.clock()
@@ -115,7 +118,7 @@ class Device(object):
                 pass
 
             while self._serial.inWaiting() > 0:
-                if self._serial.readline().startswith("--start--"):
+                if '--ready--' in self._serial.readline():
                     return True
 
         except (serial.serialutil.SerialTimeoutException, serial.serialutil.SerialException): #Catch issues with fixture being offline.
