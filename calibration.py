@@ -45,7 +45,7 @@ class calibration(object):
         self.y = [53.050000, 152.930000, 153.130000, 53.260000]
 
         # Load our template image.
-        self.referenceImg = cv2.imread(resource_path('-6Height.png'))
+        self.referenceImg = cv2.imread(resource_path('reference.png'))
 
         # Flag used to kill thread.
         self.exit_thread = False
@@ -201,7 +201,7 @@ class calibration(object):
 
     def homeIn(self, initial_x, initial_y):
         ''' This function homes in on the reference Image and breaks after center has been idenfitified. '''
-        self.device.sendCommandOK("G01 X{:f} Y{:f} Z-6 F6000".format(initial_x, initial_y)) # Travel to our initial estimate.
+        self.device.sendCommandOK("G01 X{:f} Y{:f} Z0 F6000".format(initial_x, initial_y)) # Travel to our initial estimate.
         self.device.sendCommandOK("M400")
         time.sleep(0.2)
 
