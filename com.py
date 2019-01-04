@@ -132,7 +132,7 @@ class Device(object):
                 pass
 
             while self._serial.inWaiting() > 0:
-                if '--ready--' in self._serial.readline():
+                if 'ready' in self._serial.readline():
                     return True
 
         except (serial.serialutil.SerialTimeoutException, serial.serialutil.SerialException): #Catch issues with fixture being offline.
